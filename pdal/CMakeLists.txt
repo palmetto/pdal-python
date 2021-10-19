@@ -3,7 +3,8 @@ set(EXTENSION_SRC
     PyArray.hpp
     PyDimension.hpp
     PyPipeline.cpp
-    PyPipeline.hpp)
+    PyPipeline.hpp
+    StreamableExecutor.cpp)
 
 set(extension "libpdalpython")
 add_cython_target(${extension} "libpdalpython.pyx" CXX PY3)

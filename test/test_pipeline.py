@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+from functools import partial
 
 import numpy as np
 import pytest
@@ -13,6 +14,12 @@ DATADIRECTORY = os.path.join(os.path.dirname(__file__), "data")
 def get_pipeline(filename, factory=pdal.Pipeline):
     with open(os.path.join(DATADIRECTORY, filename), "r") as f:
         pipeline = factory(f.read())
+    assert pipeline.validate()
+    return pipeline
+
+def get_pipeline_iter(filename, chunk_size=10000):
+    with open(os.path.join(DATADIRECTORY, filename), "r") as f:
+        pipeline = pdal.PipelineIterator(f.read(), chunk_size=chunk_size, prefetch=3)
     assert pipeline.validate()
     return pipeline
 
@@ -197,3 +204,36 @@ class TestMesh:
         assert str(m.dtype) == "[('A', '<u4'), ('B', '<u4'), ('C', '<u4')]"
         assert len(m) == 134
         assert m[0][0] == 29
+
+class TestPipelineIterator:
+    factory = partial(pdal.PipelineIterator, chunk_size=100)
+
+    def test_construction(self):
+        """Can we construct a PDAL pipeline iterator"""
+        assert isinstance(
+            get_pipeline("range.json", pdal.PipelineIterator), pdal.PipelineIterator
+        )
+        assert isinstance(
+            get_pipeline("range.json", self.factory), pdal.PipelineIterator
+        )
+
+    def test_validate(self):
+        """Do we complain with bad pipelines"""
+        bad_json = """
+            [
+              "nofile.las",
+              {
+                "type": "filters.range",
+                "limits": "Intensity[80:120)"
+              }
+            ]
+        """
+        r = pdal.PipelineIterator(bad_json)
+        with pytest.raises(RuntimeError):
+            r.validate()
+
+    def test_iterate(self):
+        pipeline = get_pipeline_iter("range.json")
+        print("Got into iterate!")
+        for arr in pipeline:
+            print(arr.shape)
